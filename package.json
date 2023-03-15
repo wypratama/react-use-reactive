@@ -12,7 +12,7 @@
   },
   "scripts": {
     "start": "tsdx watch",
-    "build": "tsdx build",
+    "build": "tsdx build --format cjs,esm,umd",
     "test": "tsdx test --passWithNoTests",
     "lint": "tsdx lint",
     "prepare": "tsdx build",
@@ -69,5 +69,6 @@
     "typescript": "^4.9.5"
   },
   "description": "This package provides a custom React hook called `useReactive` which allows you to create a reactive object with nested properties that update automatically when its values change.",
-  "repository": "git@github.com:wypratama/react-use-reactive.git"
+  "repository": "git@github.com:wypratama/react-use-reactive.git",
+  "keywords": ["react", "reactive-hook", "state-hook", "react-hook"]
 }
