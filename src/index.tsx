@@ -5,7 +5,7 @@ const useReactive = <T extends object>(initialState: T) => {
 
   const reactiveObject = useMemo(() => {
     const handleNestedObject = (obj: any): any => {
-      Object.keys(obj).forEach((key) => {
+      Object.keys(obj).forEach(key => {
         if (typeof obj[key] === 'object' && obj[key] !== null) {
           obj[key] = handleNestedObject(obj[key]);
           obj[key] = new Proxy(obj[key], {
@@ -14,7 +14,7 @@ const useReactive = <T extends object>(initialState: T) => {
             },
             set(target, prop, value) {
               target[prop] = value;
-              setVariable((prevState) => ({
+              setVariable(prevState => ({
                 ...prevState,
                 [key]: handleNestedObject(target),
               }));
@@ -30,10 +30,10 @@ const useReactive = <T extends object>(initialState: T) => {
   }, [variable]);
 
   return new Proxy(variable, {
-    get(target:any, key:any) {
+    get(target: any, key: any) {
       return target[key];
     },
-    set(target:any, key:any, value) {
+    set(target: any, key: any, value) {
       if (typeof target[key] === 'object' && target[key] !== null) {
         reactiveObject(target[key]);
       } else {

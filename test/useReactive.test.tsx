@@ -4,7 +4,7 @@ import React from 'react';
 
 describe('useReactive', () => {
   test('should set reactive object', () => {
-    let result: ReturnType<typeof useReactive<{ x: number }>> | null = null;
+    let result: { x: number } | null = null;
     const TestComponent = () => {
       result = useReactive({ x: 1 });
       return null;
@@ -22,13 +22,13 @@ describe('useReactive', () => {
   });
 
   test('should handle nested object', () => {
-    let result: ReturnType<typeof useReactive<{
+    let result: {
       a: {
         b: {
-          c: number,
-        },
-      },
-    }>> | null = null;
+          c: number;
+        };
+      };
+    } | null = null;
     const TestComponent = () => {
       result = useReactive({
         a: {
