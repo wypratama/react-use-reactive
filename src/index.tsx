@@ -1,54 +1,44 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
-const useReactive = <T extends object>(initialState: T) => {
-  const [variable, setVariable] = useState(initialState);
+type Path = (string | number | symbol)[];
 
-  const reactiveObject = useMemo(() => {
-    const handleNestedObject = (obj: any): any => {
-      Object.keys(obj).forEach(key => {
-        if (typeof obj[key] === 'object' && obj[key] !== null) {
-          obj[key] = handleNestedObject(obj[key]);
-          obj[key] = new Proxy(obj[key], {
-            get(target, key) {
-              return target[key];
-            },
-            set(target, prop, value) {
-              target[prop] = value;
-              setVariable(prevState => ({
-                ...prevState,
-                [key]: handleNestedObject(target),
-              }));
-              return true;
-            },
-          });
-        }
-      });
-      return obj;
-    };
+const useReactive = <T extends object>(state: T): T => {
+  const [variable, setVariable] = useState<T>(state);
 
-    return handleNestedObject(variable);
-  }, [variable]);
-
-  return new Proxy(variable, {
-    get(target: any, key: any) {
-      return target[key];
-    },
-    set(target: any, key: any, value) {
-      if (typeof target[key] === 'object' && target[key] !== null) {
-        reactiveObject(target[key]);
-      } else {
-        setVariable({
-          ...target,
-          [key]: value,
-        });
+  const updateState = (path: Path, value: any) => {
+    setVariable(prevState => {
+      const newState = JSON.parse(JSON.stringify(prevState)); // Create a deep copy
+      let current: any = newState;
+      for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i]];
       }
+      current[path[path.length - 1]] = value;
+      return newState;
+    });
+  };
+
+  const createHandler = <K extends Record<string, any>>(
+    _target: K,
+    path: Path = []
+  ): ProxyHandler<K> => ({
+    get(target: K, key: string | number | symbol) {
+      const typedKey = key as keyof K;
+      if (typeof target[typedKey] === 'object' && target[typedKey] !== null) {
+        return new Proxy(
+          target[typedKey],
+          createHandler(target[typedKey], [...path, key])
+        );
+      } else {
+        return target[typedKey];
+      }
+    },
+    set(_target: K, key: string | number | symbol, value: any) {
+      updateState([...path, key], value);
       return true;
     },
-  }) as Reactive<T>;
-};
+  });
 
-type Reactive<T> = {
-  [P in keyof T]: T[P] extends object ? Reactive<T[P]> : T[P];
+  return new Proxy<T>(variable, createHandler(variable));
 };
 
 export default useReactive;

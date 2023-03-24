@@ -1,61 +1,73 @@
-# Package Name
+# React useReactive
 
-react-use-reactive
-
-## Description
-
-This package provides a custom React hook called `useReactive` which allows you to create a reactive object with nested properties that update automatically when its values change. The reactive object is created using the `useState` and `useMemo` hooks from React.
+`react-use-reactive` is a custom React hook that allows you to create reactive objects using `useState`. It supports deep reactivity and updates, even for nested objects.
 
 ## Installation
 
-To use this package, you can install it from npm by running the following command:
+To install the `react-use-reactive` hook, run the following command in your project directory:
 
-    npm install react-use-reactive
+```sh
+npm install react-use-reactive
+```
 
 ## Usage
 
-To use the `useReactive` hook in your React component, first import it :
+First, import the useReactive hook:
 
-    import useReactive from "react-use-reactive";
+```jsx
+import useReactive from 'react-use-reactive';
+```
 
-Then, you can use the `useReactive` hook to create a reactive object with the initial state of your choice. For example:
+Next, use the useReactive hook in your functional components:
 
-    const App = () => {
-      const initialState = {
-        counter: 0,
-        user: {
-          name: "John",
-          age: 30
-        }
-      };
-      const state = useReactive(initialState);
+```jsx
+import React from 'react';
+import useReactive from 'react-use-reactive';
 
-      // ...
-    };
+const App = () => {
+  const state = useReactive({ count: 0, nested: { value: 0 } });
 
-The `state` returned by the `useReactive` hook is a reactive object that you can use in your component's state. Any changes to its properties will automatically trigger a re-render of your component.
+  const incrementCount = () => {
+    state.count++;
+  };
 
-    state.user.age = 31
-    state // {
-        counter: 0,
-        user: {
-          name: "John",
-          age: 31
-        }
-      };
+  const incrementNestedValue = () => {
+    state.nested.value++;
+  };
+
+  return (
+    <div>
+      <div>Count: {state.count}</div>
+      <button onClick={incrementCount}>Increment Count</button>
+      <div>Nested value: {state.nested.value}</div>
+      <button onClick={incrementNestedValue}>Increment Nested Value</button>
+    </div>
+  );
+};
+
+export default App;
+```
 
 Usage example with form binding:
 
-    <input
-      type="text"
-      value={state.user.name}
-      onChange={(e) => state.user.name = e.target.value}
-    >
-    <input
-      type="number"
-      value={state.counter}
-      onChange={(e) => state.counter = +e.target.value}
-    >
+```jsx
+...
+
+const state = useReactive({ user: {firstName: '', lastName: ''} });
+
+...
+
+<input
+  type="text"
+  value={state.user.firstName}
+  onChange={(e) => state.user.firstName = e.target.value}
+/>
+<input
+  type="number"
+  value={state.user.lastName}
+  onChange={(e) => state.user.lastName = +e.target.value}
+/>
+```
 
 This allows for nested objects to also become reactive, instead of a non-reactive object being assigned to a reactive property.
 

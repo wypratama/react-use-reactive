@@ -56,7 +56,7 @@
     "@storybook/addon-links": "^6.5.16",
     "@storybook/addons": "^6.5.16",
     "@storybook/react": "^6.5.16",
-    "@testing-library/react": "^14.0.0",
+    "@testing-library/react-hooks": "^8.0.1",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
     "babel-loader": "^9.1.2",
@@ -69,12 +69,15 @@
     "tslib": "^2.5.0",
     "typescript": "^4.9.5"
   },
-  "description": "This package provides a custom React hook called `useReactive` which allows you to create a reactive object with nested properties that update automatically when its values change.",
+  "description": "A custom React hook to create reactive objects using useState with support for nested objects.",
   "repository": "git@github.com:wypratama/react-use-reactive.git",
   "keywords": [
     "react",
     "reactive-hook",
     "state-hook",
     "react-hook"
-  ]
+  ],
+  "dependencies": {
+    "react-test-renderer": "^18.2.0"
+  }
 }

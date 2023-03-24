@@ -1,51 +1,48 @@
-import { act, render } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react-hooks';
 import useReactive from '../src/index';
-import React from 'react';
 
 describe('useReactive', () => {
-  test('should set reactive object', () => {
-    let result: { x: number } | null = null;
-    const TestComponent = () => {
-      result = useReactive({ x: 1 });
-      return null;
-    };
-
-    render(<TestComponent />);
-
-    expect(result!.x).toBe(1);
+  it('should update a single property', () => {
+    const { result } = renderHook(() => useReactive({ prop: 0 }));
 
     act(() => {
-      result!.x = 2;
+      result.current.prop = 1;
     });
 
-    expect(result!.x).toBe(2);
+    expect(result.current.prop).toBe(1);
   });
 
-  test('should handle nested object', () => {
-    let result: {
-      a: {
-        b: {
-          c: number;
-        };
-      };
-    } | null = null;
-    const TestComponent = () => {
-      result = useReactive({
-        a: {
-          b: {
-            c: 1,
-          },
-        },
-      });
-      return null;
-    };
-
-    render(<TestComponent />);
+  it('should update a nested property', () => {
+    const { result } = renderHook(() => useReactive({ nested: { prop: 0 } }));
 
     act(() => {
-      result!.a.b.c = 2;
+      result.current.nested.prop = 1;
     });
 
-    expect(result!.a.b.c).toBe(2);
+    expect(result.current.nested.prop).toBe(1);
+  });
+
+  it('should update properties independently', () => {
+    const { result } = renderHook(() => useReactive({ prop1: 0, prop2: 0 }));
+
+    act(() => {
+      result.current.prop1 = 1;
+    });
+
+    expect(result.current.prop1).toBe(1);
+    expect(result.current.prop2).toBe(0);
+  });
+
+  it('should update nested properties independently', () => {
+    const { result } = renderHook(() =>
+      useReactive({ nested1: { prop: 0 }, nested2: { prop: 0 } })
+    );
+
+    act(() => {
+      result.current.nested1.prop = 1;
+    });
+
+    expect(result.current.nested1.prop).toBe(1);
+    expect(result.current.nested2.prop).toBe(0);
   });
 });
