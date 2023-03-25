@@ -64,6 +64,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-is": "^18.2.0",
+    "react-test-renderer": "^18.2.0",
     "size-limit": "^8.2.4",
     "tsdx": "^0.14.1",
     "tslib": "^2.5.0",
@@ -77,7 +78,5 @@
     "state-hook",
     "react-hook"
   ],
-  "dependencies": {
-    "react-test-renderer": "^18.2.0"
-  }
+  "dependencies": {}
 }
