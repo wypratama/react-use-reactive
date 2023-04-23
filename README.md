@@ -63,9 +63,9 @@ const state = useReactive({ user: {firstName: '', lastName: ''} });
   onChange={(e) => state.user.firstName = e.target.value}
 />
 <input
-  type="number"
+  type="text"
   value={state.user.lastName}
-  onChange={(e) => state.user.lastName = +e.target.value}
+  onChange={(e) => state.user.lastName = e.target.value}
 />
 ```
 
