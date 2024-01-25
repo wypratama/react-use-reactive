@@ -7,7 +7,7 @@ const useReactive = <T extends object>(state: T): T => {
 
   const updateState = (path: Path, value: any) => {
     setVariable(prevState => {
-      const newState = JSON.parse(JSON.stringify(prevState)); // Create a deep copy
+      const newState = structuredClone(prevState); // Create a deep copy
       let current: any = newState;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
