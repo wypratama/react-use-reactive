@@ -1,6 +1,14 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import useReactive from '../src/index';
+import structuredClone from "@ungap/structured-clone";
 
+beforeAll(() => {
+  // Attach the polyfill as a Global function
+  if (!("structuredClone" in globalThis)) {
+    globalThis.structuredClone = structuredClone as any;
+  }
+})
+ 
 describe('useReactive', () => {
   it('should update a single property', () => {
     const { result } = renderHook(() => useReactive({ prop: 0 }));
