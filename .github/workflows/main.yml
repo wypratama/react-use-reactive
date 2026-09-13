@@ -5,13 +5,13 @@ on:
 
 jobs:
   validate:
-    name: Lint, type-check, test, and verify package
+    name: Lint, type-check, test, and verify package (React 19)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -29,3 +29,21 @@ jobs:
         run: npm run lint:pack
       - name: Verify package contents and entry point
         run: npm run check:pack
+
+  test-react-18:
+    name: Test against React 18
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Swap React 19 for React 18
+        run: npm install --no-save react@18.3.1 react-dom@18.3.1 @types/react@18.3.12
+      - name: Test
+        run: npm test

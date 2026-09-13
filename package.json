@@ -4,7 +4,6 @@
   "description": "A custom React hook to create reactive objects using useState with support for nested objects",
   "type": "module",
   "main": "index.js",
-  "module": "index.js",
   "types": "index.d.ts",
   "files": [
     "index.js",
@@ -25,8 +24,7 @@
   },
   "packageManager": "npm@11.17.0",
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "test": "vitest run",
@@ -49,9 +47,8 @@
     "react-hook"
   ],
   "peerDependencies": {
-    "react": ">=16"
+    "react": "^18.0.0 || ^19.0.0"
   },
-  "dependencies": {},
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",

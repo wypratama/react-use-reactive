@@ -71,6 +71,14 @@ const state = useReactive({ user: {firstName: '', lastName: ''} });
 
 This allows for nested objects to also become reactive, instead of a non-reactive object being assigned to a reactive property.
 
+## Known limitations
+
+These are accepted limitations of the current runtime design. Improving them is planned, not part of the current behavior contract.
+
+- **Consecutive mutations in one synchronous block do not accumulate.** Reads go through the snapshot captured at the last render, so a read-modify-write sequence such as `state.count++; state.count++;` in a single handler leaves `count` at `1` (each write observes the same pre-render value). The same applies to e.g. calling `state.items.push(x)` twice in one handler — only the last write to a given slot is kept. Mutations in separate user events / separate renders work correctly.
+- **`delete` is not tracked.** There is no `deleteProperty` trap, so `delete state.nested.prop` mutates the underlying object directly without scheduling a re-render. Prefer assigning `undefined` or building a replacement object.
+- **Nested proxies are not memoized.** Reading an object property returns a new `Proxy` each time, so `state.nested !== state.nested`. A reference captured before the object is replaced will, when mutated, write to whichever object currently lives at that path (i.e. the replacement), not the original object.
+
 ## TypeScript
 
 The package ships with type declarations. `index.d.ts` is generated from the JSDoc in `index.js` via `npm run build:types` — the JSDoc is the source of truth and the two never drift apart.

@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["unicorn", "typescript", "oxc", "react", "jsdoc", "vitest"],
+  "env": {
+    "node": true
+  },
+  "settings": {
+    "react": {
+      "version": "19.0.0"
+    }
+  },
+  "ignorePatterns": ["index.d.ts"],
+  "rules": {
+    "jsdoc/no-defaults": "off",
+    "react/rules-of-hooks": "error"
+  }
+}
