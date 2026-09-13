@@ -7,10 +7,11 @@ on:
         required: true
         type: choice
         options:
+          - auto
           - patch
           - minor
           - major
-        default: patch
+        default: auto
 
 jobs:
   release:
@@ -34,17 +35,17 @@ jobs:
       - name: Install
         run: npm install
 
-      - name: Bump version
-        run: npm version ${{ inputs.version }} -m "chore(release): v%s"
-
-      - name: Push version and tag
+      - name: Bump version and create tag
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          git push origin HEAD
-          git push origin "v${VERSION}"
+          case "${{ inputs.version }}" in
+            auto) npx changelogen --bump --release --push ;;
+            patch) npx changelogen --patch --release --push ;;
+            minor) npx changelogen --minor --release --push ;;
+            major) npx changelogen --major --release --push ;;
+          esac
 
-      - name: Generate changelog and create GitHub Release
-        run: npx changelogen -r
+      - name: Create GitHub Release
+        run: npx changelogen gh release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
