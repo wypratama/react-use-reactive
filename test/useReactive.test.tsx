@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react-hooks';
-import useReactive from '../src/index';
+import useReactive from '../index';
 import structuredClone from '@ungap/structured-clone';
 
 beforeAll(() => {

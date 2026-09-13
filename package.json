@@ -1,79 +1,24 @@
 {
-  "version": "1.0.1",
-  "license": "MIT",
-  "main": "dist/index.js",
-  "typings": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "engines": {
-    "node": ">=10"
-  },
-  "scripts": {
-    "start": "tsdx watch",
-    "build": "tsdx build --format cjs,esm,umd",
-    "test": "tsdx test --passWithNoTests --silent=false",
-    "lint": "tsdx lint",
-    "prepare": "tsdx build",
-    "size": "size-limit",
-    "analyz": "size-limit --why",
-    "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook",
-    "cl": "changelogen"
-  },
-  "peerDependencies": {
-    "react": ">=16"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx lint"
-    }
-  },
-  "prettier": {
-    "printWidth": 80,
-    "semi": true,
-    "singleQuote": true,
-    "trailingComma": "es5"
-  },
   "name": "react-use-reactive",
-  "author": "Wicaksana Pratama",
-  "module": "dist/react-use-reactive.esm.js",
-  "size-limit": [
-    {
-      "path": "dist/react-use-reactive.cjs.production.min.js",
-      "limit": "100 KB"
-    },
-    {
-      "path": "dist/react-use-reactive.esm.js",
-      "limit": "100 KB"
-    }
+  "version": "1.0.1",
+  "description": "A custom React hook to create reactive objects using useState with support for nested objects",
+  "type": "module",
+  "main": "index.js",
+  "module": "index.js",
+  "typings": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
   ],
-  "devDependencies": {
-    "@babel/core": "^7.21.0",
-    "@size-limit/preset-small-lib": "^8.2.4",
-    "@storybook/addon-essentials": "^6.5.16",
-    "@storybook/addon-info": "^5.3.21",
-    "@storybook/addon-links": "^6.5.16",
-    "@storybook/addons": "^6.5.16",
-    "@storybook/react": "^6.5.16",
-    "@testing-library/react-hooks": "^8.0.1",
-    "@types/react": "^18.0.28",
-    "@types/react-dom": "^18.0.11",
-    "@types/ungap__structured-clone": "^1.2.0",
-    "@ungap/structured-clone": "^1.2.0",
-    "babel-loader": "^9.1.2",
-    "changelogen": "^0.5.5",
-    "husky": "^8.0.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-is": "^18.2.0",
-    "react-test-renderer": "^18.2.0",
-    "size-limit": "^8.2.4",
-    "tsdx": "^0.14.1",
-    "tslib": "^2.5.0",
-    "typescript": "^4.9.5"
+  "scripts": {
+    "test": "vitest run",
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit"
   },
-  "description": "A custom React hook to create reactive objects using useState with support for nested objects.",
+  "license": "MIT",
+  "author": "Wicaksana Pratama",
   "repository": "git@github.com:wypratama/react-use-reactive.git",
   "keywords": [
     "react",
@@ -81,5 +26,22 @@
     "state-hook",
     "react-hook"
   ],
-  "dependencies": {}
+  "peerDependencies": {
+    "react": ">=16"
+  },
+  "devDependencies": {
+    "@testing-library/react-hooks": "^8",
+    "@types/react": "^18",
+    "@ungap/structured-clone": "^1",
+    "oxlint": "^1",
+    "typescript": "^5",
+    "vitest": "^2"
+  },
+  "dependencies": {},
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  }
 }
