@@ -264,7 +264,7 @@ describe('useReactive', () => {
   });
 
   describe('identity', () => {
-    it('keeps the root proxy stable across renders', () => {
+    it('changes the root proxy identity when root data changes', () => {
       const { result } = renderHook(() => useReactive({ count: 0 }));
       const first = result.current;
 
@@ -272,7 +272,19 @@ describe('useReactive', () => {
         result.current.count = 1;
       });
 
-      expect(result.current).toBe(first);
+      expect(result.current).not.toBe(first);
+    });
+
+    it('keeps the root proxy identity across unrelated re-renders', () => {
+      let state = null;
+      const { rerender } = renderHook(() => {
+        state = useReactive({ count: 0 });
+      });
+      const first = state;
+
+      rerender();
+
+      expect(state).toBe(first);
     });
 
     it('returns the same nested proxy for the current node', () => {
@@ -535,6 +547,7 @@ describe('useReactive', () => {
       });
 
       expect(result.current.self.a).toBe(2);
+      expect(result.current.a).toBe(2);
     });
   });
 
