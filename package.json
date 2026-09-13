@@ -5,18 +5,39 @@
   "type": "module",
   "main": "index.js",
   "module": "index.js",
-  "typings": "index.d.ts",
+  "types": "index.d.ts",
   "files": [
     "index.js",
     "index.d.ts",
     "README.md",
     "LICENSE"
   ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@11.17.0",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "test": "vitest run",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
-    "release": "changelogogen"
+    "build:types": "tsc -p tsconfig.build.json",
+    "check:types": "npm run build:types && git diff --exit-code -- index.d.ts",
+    "lint:pack": "publint",
+    "check:pack": "node scripts/check-pack.mjs",
+    "changelog": "changelogen",
+    "prepack": "npm run build:types"
   },
   "license": "MIT",
   "author": "Wicaksana Pratama",
@@ -30,20 +51,18 @@
   "peerDependencies": {
     "react": ">=16"
   },
-  "devDependencies": {
-    "@testing-library/react-hooks": "^8",
-    "@types/react": "^18",
-    "@ungap/structured-clone": "^1",
-    "changelogen": "^0.5",
-    "oxlint": "^1",
-    "typescript": "^5",
-    "vitest": "^2"
-  },
   "dependencies": {},
-  "exports": {
-    ".": {
-      "types": "./index.d.ts",
-      "default": "./index.js"
-    }
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.3.0",
+    "changelogen": "^0.6.2",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.82.0",
+    "publint": "^0.3.24",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

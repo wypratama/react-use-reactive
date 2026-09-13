@@ -1,12 +1,6 @@
-import { renderHook, act } from '@testing-library/react-hooks';
-import useReactive from '../index';
-import structuredClone from '@ungap/structured-clone';
-
-beforeAll(() => {
-  if (!('structuredClone' in globalThis)) {
-    globalThis.structuredClone = structuredClone;
-  }
-});
+import { describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import useReactive from '../index.js';
 
 describe('useReactive', () => {
   it('should update a single property', () => {

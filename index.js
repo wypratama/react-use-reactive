@@ -6,8 +6,9 @@ import { useState } from 'react';
  * Uses React.useState under the hood for re-rendering.
  * Provides deep reactivity for nested objects.
  *
- * @param {object} state - The initial state object
- * @returns {object} A reactive proxy of the state
+ * @template {object} T - The type of the state object
+ * @param {T} state - The initial state object
+ * @returns {T} A reactive proxy of the state
  * @example
  * const state = useReactive({ count: 0, nested: { value: 0 } });
  * state.count++; // triggers re-render
@@ -27,6 +28,7 @@ const useReactive = (state) => {
   const updateState = (path, value) => {
     setVariable((prevState) => {
       const newState = structuredClone(prevState);
+      /** @type {Record<PropertyKey, any>} */
       let current = newState;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -41,12 +43,12 @@ const useReactive = (state) => {
    * Recursively wraps nested objects in Proxies so that accessing
    * a property that is an object returns a reactive Proxy.
    *
-   * @param {object} target - The target object to proxy
+   * @param {Record<PropertyKey, any>} _target - The target object to proxy
    * @param {Array<string|number|symbol>} [path=[]] - The current path from root
-   * @returns {ProxyHandler} A Proxy handler with get/set traps
+   * @returns {ProxyHandler<Record<PropertyKey, any>>} A Proxy handler with get/set traps
    * @internal
    */
-  const createHandler = (target, path = []) => ({
+  const createHandler = (_target, path = []) => ({
     get(target, key) {
       if (typeof target[key] === 'object' && target[key] !== null) {
         return new Proxy(target[key], createHandler(target[key], [...path, key]));

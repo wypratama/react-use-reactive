@@ -1,14 +1,15 @@
 {
   "compilerOptions": {
     "module": "esnext",
+    "moduleResolution": "bundler",
     "lib": ["dom", "esnext"],
+    "allowJs": true,
+    "checkJs": true,
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "moduleResolution": "node",
-    "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
