@@ -15,7 +15,8 @@
   "scripts": {
     "test": "vitest run",
     "lint": "oxlint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release": "changelogogen"
   },
   "license": "MIT",
   "author": "Wicaksana Pratama",
@@ -33,6 +34,7 @@
     "@testing-library/react-hooks": "^8",
     "@types/react": "^18",
     "@ungap/structured-clone": "^1",
+    "changelogen": "^0.5",
     "oxlint": "^1",
     "typescript": "^5",
     "vitest": "^2"
