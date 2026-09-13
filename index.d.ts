@@ -2,7 +2,7 @@ export default useReactive;
 /**
  * Creates a reactive state object.
  * Wraps the state in a Proxy to detect and react to changes.
- * Uses React.useState under the hood for re-rendering.
+ * Uses React state under the hood for re-rendering.
  * Provides deep reactivity for nested objects.
  *
  * @template {object} T - The type of the state object

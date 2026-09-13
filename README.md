@@ -1,6 +1,6 @@
 # React useReactive
 
-`react-use-reactive` is a custom React hook that allows you to create reactive objects using `useState`. It supports deep reactivity and updates, even for nested objects.
+`react-use-reactive` is a custom React hook that lets you mutate state like an ordinary JavaScript object while React manages the re-renders. It supports deep reactivity, even for nested objects.
 
 ## Installation
 
@@ -71,13 +71,14 @@ const state = useReactive({ user: {firstName: '', lastName: ''} });
 
 This allows for nested objects to also become reactive, instead of a non-reactive object being assigned to a reactive property.
 
-## Known limitations
+## Semantics
 
-These are accepted limitations of the current runtime design. Improving them is planned, not part of the current behavior contract.
-
-- **Consecutive mutations in one synchronous block do not accumulate.** Reads go through the snapshot captured at the last render, so a read-modify-write sequence such as `state.count++; state.count++;` in a single handler leaves `count` at `1` (each write observes the same pre-render value). The same applies to e.g. calling `state.items.push(x)` twice in one handler — only the last write to a given slot is kept. Mutations in separate user events / separate renders work correctly.
-- **`delete` is not tracked.** There is no `deleteProperty` trap, so `delete state.nested.prop` mutates the underlying object directly without scheduling a re-render. Prefer assigning `undefined` or building a replacement object.
-- **Nested proxies are not memoized.** Reading an object property returns a new `Proxy` each time, so `state.nested !== state.nested`. A reference captured before the object is replaced will, when mutated, write to whichever object currently lives at that path (i.e. the replacement), not the original object.
+- **Deep reactivity with synchronous reads.** The state is an immutable copy-on-write tree behind a mutable-facade Proxy. A commit advances the tree immediately, so consecutive `state.count++`, `+=`, and repeated `push()` calls in one handler all accumulate and reads are never stale. React still re-renders only once per batched tick.
+- **What is reactive.** Only plain objects and arrays (including `Object.create(null)`) are deep-reactive. Everything else — functions, `Date`, `RegExp`, class instances, `Map`/`Set` — is stored **by reference** and is not proxied: replace it rather than mutating it.
+- **Ownership.** The initial value and every assigned value are deep-copied away from the caller; caller-owned objects are never mutated, and `state.b = state.a` copies the data instead of aliasing.
+- **Identity.** The root object keeps a stable identity across renders. Nested objects keep their identity while their data is unchanged and receive a fresh identity when the node's data changes — the memoization-friendly pattern. Held references stay writable while the object is still current.
+- **Stale references.** A reference captured before its object was replaced reads a frozen view of the old object and its writes are inert (they cannot affect the current state).
+- **Mutation ownership model.** Use copies, not in-place edits of the object you pass in, and prefer mutating the returned proxy from event handlers or effects. Like React state, the hook does not support mutating during render.
 
 ## TypeScript
 
