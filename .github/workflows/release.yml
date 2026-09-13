@@ -38,7 +38,7 @@ jobs:
       - name: Bump version and create tag
         run: |
           case "${{ inputs.version }}" in
-            auto) npx changelogen --bump --release --push ;;
+            auto)  npx changelogen --release --push ;;
             patch) npx changelogen --patch --release --push ;;
             minor) npx changelogen --minor --release --push ;;
             major) npx changelogen --major --release --push ;;
