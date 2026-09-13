@@ -3,9 +3,8 @@ import useReactive from '../index';
 import structuredClone from '@ungap/structured-clone';
 
 beforeAll(() => {
-  // Attach the polyfill as a Global function
   if (!('structuredClone' in globalThis)) {
-    globalThis.structuredClone = structuredClone as any;
+    globalThis.structuredClone = structuredClone;
   }
 });
 
