@@ -61,35 +61,6 @@ const copyNode = (node) => {
   return copy;
 };
 
-/**
- * Marker for a cycle edge in the initial value tree. A marker is a frozen leaf
- * that only records the target path of an object that is its own (transitive)
- * ancestor; it is never exposed to user code as data.
- *
- * @type {symbol}
- * @internal
- */
-const ALIAS = Symbol('reactUseReactive.alias');
-
-/**
- * Whether `value` is an internal cycle-alias marker.
- *
- * @param {*} value
- * @returns {boolean}
- * @internal
- */
-const isAliasMarker = (value) =>
-  value !== null && typeof value === 'object' && value[ALIAS] !== undefined;
-
-/**
- * Builds a cycle-alias marker for the given target path.
- *
- * @param {Array<string|symbol|number>} path
- * @returns {Object}
- * @internal
- */
-const makeMarker = (path) => Object.freeze({ [ALIAS]: path });
-
 /** @type {WeakMap<object, any>} */
 const proxyHandles = new WeakMap();
 
@@ -101,67 +72,6 @@ const proxyHandles = new WeakMap();
  * @internal
  */
 const unwrapHandle = (value) => proxyHandles.get(value);
-
-/**
- * Deep (re)build a value into owned tree data: plain objects and arrays are
- * deep-cloned (unwrapping any of our proxies found inside), every other value
- * is opaque and stored by reference. Each occurrence of a shared reference is
- * cloned into its own branch; reference edges that form a cycle are reduced to
- * alias markers targeting the ancestor path.
- *
- * @param {*} value
- * @param {Array<string|symbol|number>} path - result path of `value`
- * @param {Array<{node: *, path: Array<string|symbol|number>}>} ancestry - originals on the current recursion chain
- * @returns {*}
- * @internal
- */
-const toNode = (value, path, ancestry) => {
-  const handle = unwrapHandle(value);
-  if (handle !== undefined) {
-    return toNode(handle.live(), path, ancestry);
-  }
-  if (Array.isArray(value)) {
-    /** @type {Array<*>} */ const out = [];
-    nodeIds.set(out, Symbol('node'));
-    const chain = ancestry.concat([{ node: value, path }]);
-    for (let i = 0; i < value.length; i++) {
-      if (!(i in value)) {
-        continue;
-      }
-      const candidate = value[i];
-      const hit = chain.find((entry) => entry.node === candidate);
-      if (hit !== undefined) {
-        out[i] = makeMarker(hit.path);
-      } else if (isAliasMarker(candidate)) {
-        out[i] = candidate;
-      } else {
-        out[i] = toNode(candidate, path.concat(i), chain);
-      }
-    }
-    return out;
-  }
-  if (isPlainObject(value)) {
-    const out = Object.create(Object.getPrototypeOf(value));
-    nodeIds.set(out, Symbol('node'));
-    const chain = ancestry.concat([{ node: value, path }]);
-    for (const key of Reflect.ownKeys(value)) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (descriptor && descriptor.enumerable && 'value' in descriptor) {
-        const candidate = descriptor.value;
-        const hit = chain.find((entry) => entry.node === candidate);
-        if (hit !== undefined) {
-          out[key] = makeMarker(hit.path);
-        } else if (isAliasMarker(candidate)) {
-          out[key] = candidate;
-        } else {
-          out[key] = toNode(candidate, path.concat(key), chain);
-        }
-      }
-    }
-    return out;
-  }
-  return value;
-};
 
 /**
  * Node currently occupying `path` in the given root tree.
@@ -183,28 +93,155 @@ const nodeAtPath = (root, path) => {
 };
 
 /**
+ * Deep (re)build a value into owned tree data: plain objects and arrays are
+ * deep-cloned (unwrapping any of our proxies found inside), every other value
+ * is opaque and stored by reference. Each occurrence of a shared reference is
+ * cloned into its own branch (the state model is a TREE, never a graph).
+ * Structural cycles cannot exist in a tree and are rejected with an error.
+ *
+ * @param {*} value
+ * @param {Array<string|symbol|number>} path - result path of `value`
+ * @param {Array<{node: *, path: Array<string|symbol|number>}>} ancestry - originals on the current recursion chain
+ * @returns {*}
+ * @internal
+ */
+const toNode = (value, path, ancestry) => {
+  const handle = unwrapHandle(value);
+  if (handle !== undefined) {
+    return toNode(handle.live(), path, ancestry);
+  }
+  if (Array.isArray(value)) {
+    /** @type {Array<*>} */ const out = [];
+    nodeIds.set(out, Symbol('node'));
+    const chain = ancestry.concat([{ node: value, path }]);
+    for (let i = 0; i < value.length; i++) {
+      if (!(i in value)) {
+        continue;
+      }
+      const candidate = value[i];
+      assertAcyclic(candidate, chain);
+      out[i] = toNode(candidate, path.concat(i), chain);
+    }
+    return out;
+  }
+  if (isPlainObject(value)) {
+    const out = Object.create(Object.getPrototypeOf(value));
+    nodeIds.set(out, Symbol('node'));
+    const chain = ancestry.concat([{ node: value, path }]);
+    for (const key of Reflect.ownKeys(value)) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor && descriptor.enumerable && 'value' in descriptor) {
+        const candidate = descriptor.value;
+        assertAcyclic(candidate, chain);
+        out[key] = toNode(candidate, path.concat(key), chain);
+      }
+    }
+    return out;
+  }
+  return value;
+};
+
+/**
+ * Throws when `candidate` is its own (transitive) ancestor in the current
+ * conversion chain, i.e. when the value is a structural cycle.
+ *
+ * @param {*} candidate
+ * @param {Array<{node: *, path: Array<string|symbol|number>}>} chain
+ * @internal
+ */
+const assertAcyclic = (candidate, chain) => {
+  if (chain.some((entry) => entry.node === candidate)) {
+    throw new TypeError(
+      'useReactive does not support cyclic plain objects or arrays'
+    );
+  }
+};
+
+/**
+ * Validates a data `defineProperty` descriptor against the current own
+ * descriptor of `key`. Properties are defined on a copy-on-write node, but the
+ * Proxy target is the previous version of that node, so transitions that would
+ * violate Proxy invariant rules (essentially tightening attributes) are
+ * rejected up front with a clear error instead of a raw engine error.
+ *
+ * @param {string|symbol|number} key
+ * @param {PropertyDescriptor} descriptor
+ * @param {PropertyDescriptor|undefined} current
+ * @internal
+ */
+const assertDefineCompatible = (key, descriptor, current) => {
+  const configurable = descriptor.configurable === true;
+  const hasValue = 'value' in descriptor;
+  const writable = hasValue ? descriptor.writable === true : undefined;
+
+  if (
+    configurable &&
+    current !== undefined &&
+    current.configurable === false
+  ) {
+    throw new TypeError(
+      'useReactive cannot make the non-configurable property ' +
+        String(key) +
+        ' configurable'
+    );
+  }
+  if (
+    !configurable &&
+    (current === undefined || current.configurable === true)
+  ) {
+    throw new TypeError(
+      'useReactive cannot define the configurable property ' +
+        String(key) +
+        ' as non-configurable'
+    );
+  }
+  if (
+    hasValue &&
+    (writable === true && current !== undefined && current.writable === false)
+  ) {
+    throw new TypeError(
+      'useReactive cannot make the non-writable property ' +
+        String(key) +
+        ' writable'
+    );
+  }
+  if (
+    hasValue &&
+    current !== undefined &&
+    current.writable === false &&
+    !Object.is(descriptor.value, current.value)
+  ) {
+    throw new TypeError(
+      'useReactive cannot change the value of the non-writable property ' +
+        String(key)
+    );
+  }
+};
+
+/**
  * Builds (and registers) the reactive Proxy for a NodeHandle. The Proxy
  * targets the handle's node so reflective tools (e.g. `Array.isArray`) see the
  * real data type; all metadata lives in the `handle` closure.
  *
- * @param {{ current: *, cache: WeakMap<object, *>, aliasCache: Map<Array<*>, *>, dispatch: () => void, rootNode: *, root: * }} store -
+ * @param {{ current: *, cache: WeakMap<object, *>, dispatch: () => void, rootNode: *, root: * }} store -
  *   the store this proxy belongs to
- * @param {{ store: *, follow: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }} handle -
+ * @param {{ store: *, isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }} handle -
  *   the handle of the node being proxied
  * @returns {*}
  * @internal
  */
 const makeProxy = (store, handle) => {
   /**
-   * Whether writes through this proxy may reach the current tree. Follow
-   * handles are always live; bound handles are live while identical to the
-   * current occupant or a logical successor (same logical id) of it.
+   * Whether writes through this proxy may reach the current tree. The root is
+   * always live; bound handles are live while identical to the current
+   * occupant or a logical successor (same logical id) of it, and frozen once
+   * the node under them is truly replaced.
    *
    * @returns {boolean}
    * @internal
    */
   const isLive = () => {
-    if (handle.follow) {
+    if (handle.isRoot) {
       return true;
     }
     const at = nodeAtPath(store.current, handle.path);
@@ -264,7 +301,7 @@ const makeProxy = (store, handle) => {
    * @internal
    */
   const rebindAfterWrite = () => {
-    if (handle.follow) {
+    if (handle.isRoot) {
       return;
     }
     const next = nodeAtPath(store.current, handle.path);
@@ -274,9 +311,8 @@ const makeProxy = (store, handle) => {
   };
 
   /**
-   * Returns a (cached) reactive proxy for a structural child at `key`, or a
-   * live follow-handle when the child is a cycle alias, or the raw value for
-   * opaque primitives.
+   * Returns a (cached) reactive proxy for a structural child at `key`, or the
+   * raw value for opaque primitives.
    *
    * @param {string|symbol|number} key
    * @returns {*}
@@ -288,16 +324,13 @@ const makeProxy = (store, handle) => {
       return undefined;
     }
     const value = source[key];
-    if (isAliasMarker(value)) {
-      return proxyForAlias(store, value[ALIAS]);
-    }
     if (!isStructural(value)) {
       return value;
     }
     let cached = store.cache.get(value);
     if (cached === undefined) {
       cached = createHandle(store, {
-        follow: false,
+        isRoot: false,
         path: handle.path.concat(key),
         node: value,
       });
@@ -306,11 +339,36 @@ const makeProxy = (store, handle) => {
     return cached.proxy;
   };
 
+  /**
+   * Whether an assignment is a logical no-op that must not create a new state
+   * version. Leaf writes compare with `Object.is`; structural values always
+   * trigger a copy-on-write (assignment copies, it never aliases).
+   *
+   * @param {string|symbol|number} key
+   * @param {*} value
+   * @returns {boolean}
+   * @internal
+   */
+  const isNoopWrite = (key, value) => {
+    const source = handle.live();
+    if (source === null || source === undefined) {
+      return true;
+    }
+    const inner = unwrapHandle(value) ? unwrapHandle(value).live() : value;
+    if (isStructural(inner)) {
+      return false;
+    }
+    return Object.is(source[key], inner);
+  };
+
   /** @type {ProxyHandler<*>} */
   const handler = {
     get: (_target, key) => proxyForChild(key),
     set: (_target, key, value) => {
       if (!isLive()) {
+        return true;
+      }
+      if (isNoopWrite(key, value)) {
         return true;
       }
       commit((node) => {
@@ -325,9 +383,39 @@ const makeProxy = (store, handle) => {
       if (!isLive()) {
         return true;
       }
+      const source = handle.live();
+      if (source === null || source === undefined || !(key in source)) {
+        return true;
+      }
       commit((node) => {
         const copy = copyNode(node);
         delete copy[key];
+        return copy;
+      });
+      rebindAfterWrite();
+      return true;
+    },
+    defineProperty: (_target, key, descriptor) => {
+      if (!isLive()) {
+        return true;
+      }
+      if ('get' in descriptor || 'set' in descriptor) {
+        throw new TypeError(
+          'useReactive does not support accessor properties (getter/setter descriptors)'
+        );
+      }
+      const current =
+        handle.live() === null || handle.live() === undefined
+          ? undefined
+          : Reflect.getOwnPropertyDescriptor(handle.live(), key);
+      assertDefineCompatible(key, descriptor, current);
+      const targetDescriptor = { ...descriptor };
+      if ('value' in targetDescriptor) {
+        targetDescriptor.value = toNode(targetDescriptor.value, [], []);
+      }
+      commit((node) => {
+        const copy = copyNode(node);
+        Object.defineProperty(copy, key, targetDescriptor);
         return copy;
       });
       rebindAfterWrite();
@@ -354,20 +442,6 @@ const makeProxy = (store, handle) => {
       }
       return Reflect.getOwnPropertyDescriptor(source, key);
     },
-    defineProperty: (_target, key, descriptor) => {
-      if (!isLive()) {
-        return true;
-      }
-      if ('value' in descriptor) {
-        commit((node) => {
-          const copy = copyNode(node);
-          copy[key] = toNode(descriptor.value, [], []);
-          return copy;
-        });
-        rebindAfterWrite();
-      }
-      return true;
-    },
     getPrototypeOf: (_target) => {
       const source = handle.live();
       if (source === null || source === undefined) {
@@ -385,50 +459,47 @@ const makeProxy = (store, handle) => {
 };
 
 /**
- * Creates and registers a NodeHandle (and its Proxy) for a tree node or a
- * follow target. Follow handles (the root and cycle aliases) always resolve
- * against the live node at their path; bound handles resolve against the node
- * they captured, upgraded by logical id while the object is still current.
+ * Creates and registers a NodeHandle (and its Proxy) for a tree node. Follow
+ * handles resolve against the live node at their path; bound handles resolve
+ * against the node they captured, upgraded by logical id while the object is
+ * still current, frozen to the captured node if truly replaced.
  *
  * @param {*} store - the store this handle belongs to
- * @param {{ follow?: boolean, path: Array<string|symbol|number>, node: * }} spec
- * @returns {{ store: *, follow: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }}
+ * @param {{ isRoot?: boolean, path: Array<string|symbol|number>, node: * }} spec
+ * @returns {{ store: *, isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }}
  * @internal
  */
 const createHandle = (store, spec) => {
-  const { follow, path, node } = spec;
-  const isFollow = follow === true;
+  const { isRoot, path, node } = spec;
   const handle = {
     store,
-    follow: isFollow,
+    isRoot: isRoot === true,
     path,
     node,
     proxy: null,
     /**
-     * The object this handle currently points at: for follow handles (root and
-     * cycle aliases) the live node at the target path; otherwise the bound
-     * node, upgraded to the current logical successor if the node was
-     * COW-replaced (same logical id), frozen to the captured node if truly
-     * replaced.
+     * The object this handle currently points at: the live tree for the root,
+     * otherwise the bound node upgraded to the current logical successor, or
+     * frozen to the captured node if truly replaced.
      * @returns {*}
      */
     live: () => {
-      if (isFollow) {
-        return nodeAtPath(store.current, path);
+      if (handle.isRoot) {
+        return nodeAtPath(store.current, handle.path);
       }
-      const at = nodeAtPath(store.current, path);
-      if (at === node) {
+      const at = nodeAtPath(store.current, handle.path);
+      if (at === handle.node) {
         return at;
       }
       if (
         at !== undefined &&
         isStructural(at) &&
-        isStructural(node) &&
-        nodeIds.get(at) === nodeIds.get(node)
+        isStructural(handle.node) &&
+        nodeIds.get(at) === nodeIds.get(handle.node)
       ) {
         return at;
       }
-      return node;
+      return handle.node;
     },
   };
   handle.proxy = makeProxy(store, handle);
@@ -449,39 +520,12 @@ const getRootProxy = (store) => {
   if (store.rootNode !== store.current) {
     store.rootNode = store.current;
     store.root = createHandle(store, {
-      follow: true,
+      isRoot: true,
       path: [],
       node: store.current,
     }).proxy;
   }
   return store.root;
-};
-
-/**
- * Returns a (cached) live follow-handle for a cycle-alias target path. Aliases
- * to the root share the root proxy identity; other alias targets get their own
- * cached follow-handle per store, so repeated reads of the same cycle edge are
- * identity-stable.
- *
- * @param {*} store
- * @param {Array<string|symbol|number>} targetPath
- * @returns {*}
- * @internal
- */
-const proxyForAlias = (store, targetPath) => {
-  if (targetPath.length === 0) {
-    return getRootProxy(store);
-  }
-  let cached = store.aliasCache.get(targetPath);
-  if (cached === undefined) {
-    cached = createHandle(store, {
-      follow: true,
-      path: targetPath,
-      node: nodeAtPath(store.current, targetPath),
-    });
-    store.aliasCache.set(targetPath, cached);
-  }
-  return cached.proxy;
 };
 
 /**
@@ -497,7 +541,6 @@ const createStore = (current, dispatch) => {
   const store = {
     current,
     cache: new WeakMap(),
-    aliasCache: new Map(),
     dispatch,
     rootNode: undefined,
     root: null,

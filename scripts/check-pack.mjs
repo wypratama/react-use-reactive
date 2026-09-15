@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -28,6 +28,12 @@ try {
   }
 
   execFileSync('tar', ['-xzf', path.join(work, result.filename), '-C', work], { stdio: 'inherit' });
+
+  const publishedEntry = readFileSync(path.join(work, 'package', 'index.js'), 'utf8');
+  if (!publishedEntry.startsWith("'use client';")) {
+    throw new Error("packed index.js must declare the 'use client' directive");
+  }
+  console.log("packed entry retains the 'use client' directive");
 
   const consumer = path.join(work, 'consumer');
   const consumerNodeModules = path.join(consumer, 'node_modules');

@@ -1,248 +1,169 @@
-import { memo, useMemo, useState } from 'react';
-import { describe, expect, it } from 'vitest';
-import { act, render, renderHook } from '@testing-library/react';
+import { memo, useMemo } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import useReactive from '../index.js';
 
 /* oxlint-disable react/globals */
 /* oxlint-disable react/immutability */
 
-let holder;
+afterEach(cleanup);
 
-describe('adversarial review probes', () => {
+describe('React memoization integration', () => {
   describe('useMemo', () => {
-    it('recomputes [state]-keyed memo after state.count++', () => {
-      holder = { state: null, doubled: 0 };
-      function Comp() {
+    it('recomputes a [state]-keyed memo when state data changes', () => {
+      const memoRenders = vi.fn();
+      function Example() {
         const state = useReactive({ count: 0 });
-        holder.state = state;
-        holder.doubled = useMemo(() => state.count * 2, [state]);
-        return null;
+        const doubled = useMemo(() => {
+          memoRenders();
+          return state.count * 2;
+        }, [state]);
+
+        return (
+          <>
+            <span data-testid="value">{doubled}</span>
+            <button onClick={() => state.count++}>increment</button>
+          </>
+        );
       }
-      render(<Comp />);
-      expect(holder.doubled).toBe(0);
 
-      act(() => {
-        holder.state.count++;
-      });
+      render(<Example />);
+      expect(screen.getByTestId('value').textContent).toBe('0');
+      expect(memoRenders).toHaveBeenCalledTimes(1);
 
-      expect(holder.doubled).toBe(2);
+      fireEvent.click(screen.getByText('increment'));
+      expect(screen.getByTestId('value').textContent).toBe('2');
+
+      fireEvent.click(screen.getByText('increment'));
+      expect(screen.getByTestId('value').textContent).toBe('4');
+      expect(memoRenders).toHaveBeenCalledTimes(3);
     });
 
-    it('recomputes [state.user]-keyed memo after user.name changes', () => {
-      holder = { state: null, name: null };
-      function Comp() {
+    it('recomputes a [state.user]-keyed memo when user data changes', () => {
+      function Example() {
         const state = useReactive({ user: { name: 'a' } });
-        holder.state = state;
-        holder.name = useMemo(() => state.user.name, [state.user]);
-        return null;
+        const name = useMemo(() => state.user.name, [state.user]);
+
+        return (
+          <>
+            <span data-testid="name">{name}</span>
+            <button onClick={() => (state.user.name = 'b')}>rename</button>
+          </>
+        );
       }
-      render(<Comp />);
-      expect(holder.name).toBe('a');
 
-      act(() => {
-        holder.state.user.name = 'New';
-      });
+      render(<Example />);
+      expect(screen.getByTestId('name').textContent).toBe('a');
 
-      expect(holder.name).toBe('New');
+      fireEvent.click(screen.getByText('rename'));
+      expect(screen.getByTestId('name').textContent).toBe('b');
+    });
+
+    it('does not recompute a [state.user]-keyed memo on an unrelated change', () => {
+      const componentRenders = vi.fn();
+      const memoRenders = vi.fn();
+      function Example() {
+        const state = useReactive({ user: { name: 'a' }, count: 0 });
+        componentRenders();
+        const name = useMemo(() => {
+          memoRenders();
+          return state.user.name;
+        }, [state.user]);
+
+        return (
+          <>
+            <span data-testid="name">{name}</span>
+            <button onClick={() => (state.count += 1)}>bump</button>
+          </>
+        );
+      }
+
+      render(<Example />);
+      expect(memoRenders).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByText('bump'));
+
+      expect(componentRenders).toHaveBeenCalledTimes(2);
+      expect(memoRenders).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('name').textContent).toBe('a');
     });
   });
 
   describe('React.memo', () => {
-    it('re-renders a memoized child that receives the root state', () => {
-      holder = { state: null, childRenders: 0 };
+    it('re-renders a memoized child that receives a root-state prop', () => {
+      const childRenders = vi.fn();
       const Child = memo(function Child({ state }) {
-        holder.childRenders++;
-        return <span>{state.count}</span>;
+        childRenders();
+        return <span data-testid="count">{state.count}</span>;
       });
 
       function Parent() {
         const state = useReactive({ count: 0 });
-        holder.state = state;
-        return <Child state={state} />;
+        return (
+          <>
+            <button onClick={() => state.count++}>increment</button>
+            <Child state={state} />
+          </>
+        );
       }
 
       render(<Parent />);
-      expect(holder.childRenders).toBe(1);
+      expect(childRenders).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('count').textContent).toBe('0');
 
-      act(() => {
-        holder.state.count++;
-      });
-
-      expect(holder.childRenders).toBe(2);
+      fireEvent.click(screen.getByText('increment'));
+      expect(childRenders).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('count').textContent).toBe('1');
     });
 
     it('re-renders a memoized child when only its nested prop changes', () => {
-      holder = { state: null, childRenders: 0 };
+      const childRenders = vi.fn();
       const Child = memo(function Child({ user }) {
-        holder.childRenders++;
-        return <span>{user.name}</span>;
+        childRenders();
+        return <span data-testid="name">{user.name}</span>;
       });
 
       function Parent() {
         const state = useReactive({ user: { name: 'a' } });
-        holder.state = state;
-        return <Child user={state.user} />;
+        return (
+          <>
+            <button onClick={() => (state.user.name = 'b')}>rename</button>
+            <Child user={state.user} />
+          </>
+        );
       }
 
       render(<Parent />);
-      expect(holder.childRenders).toBe(1);
+      expect(childRenders).toHaveBeenCalledTimes(1);
 
-      act(() => {
-        holder.state.user.name = 'b';
-      });
-
-      expect(holder.childRenders).toBe(2);
+      fireEvent.click(screen.getByText('rename'));
+      expect(childRenders).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('name').textContent).toBe('b');
     });
 
     it('skips a memoized child when an unrelated sibling changes', () => {
-      holder = { state: null, childRenders: 0 };
+      const childRenders = vi.fn();
       const Child = memo(function Child({ user }) {
-        holder.childRenders++;
-        return <span>{user.name}</span>;
+        childRenders();
+        return <span data-testid="name">{user.name}</span>;
       });
 
       function Parent() {
         const state = useReactive({ user: { name: 'a' }, count: 0 });
-        holder.state = state;
-        return <Child user={state.user} />;
+        return (
+          <>
+            <button onClick={() => (state.count += 1)}>bump</button>
+            <Child user={state.user} />
+          </>
+        );
       }
 
       render(<Parent />);
-      expect(holder.childRenders).toBe(1);
+      expect(childRenders).toHaveBeenCalledTimes(1);
 
-      act(() => {
-        holder.state.count = 9;
-      });
-
-      expect(holder.childRenders).toBe(1);
-    });
-  });
-
-  describe('identity', () => {
-    it('changes the root proxy identity when root data changes', () => {
-      const { result } = renderHook(() => useReactive({ count: 0 }));
-      const before = result.current;
-
-      act(() => {
-        result.current.count = 1;
-      });
-
-      expect(result.current).not.toBe(before);
-    });
-
-    it('keeps the root proxy identity across unrelated re-renders', () => {
-      holder = { state: null, setTick: null };
-      function Comp() {
-        const [tick, setTick] = useState(0);
-        const state = useReactive({ count: 0 });
-        holder.state = state;
-        holder.setTick = setTick;
-        return tick;
-      }
-      render(<Comp />);
-      const first = holder.state;
-
-      act(() => {
-        holder.setTick(1);
-      });
-
-      expect(holder.state).toBe(first);
-    });
-
-    it('keeps nested proxy identity across unrelated re-renders', () => {
-      holder = { state: null, setTick: null };
-      function Comp() {
-        const [tick, setTick] = useState(0);
-        const state = useReactive({ user: { name: 'a' } });
-        holder.state = state;
-        holder.setTick = setTick;
-        return tick;
-      }
-      render(<Comp />);
-      const first = holder.state.user;
-
-      act(() => {
-        holder.setTick(1);
-      });
-
-      expect(holder.state.user).toBe(first);
-    });
-  });
-
-  describe('held references', () => {
-    it('follows the same logical object across interleaved writes', () => {
-      const { result } = renderHook(() =>
-        useReactive({ user: { name: '', age: 0 } })
-      );
-      const userA = result.current.user;
-      const userB = result.current.user;
-
-      expect(userA).toBe(userB);
-
-      act(() => {
-        userA.name = 'A';
-      });
-      act(() => {
-        result.current.user.age = 30;
-      });
-      act(() => {
-        userB.name = 'B';
-      });
-
-      expect(result.current.user).toEqual({ name: 'B', age: 30 });
-    });
-
-    it('becomes frozen only when the node is replaced', () => {
-      const { result } = renderHook(() => useReactive({ obj: { v: 1 } }));
-      const stale = result.current.obj;
-
-      act(() => {
-        result.current.obj = { v: 2 };
-      });
-
-      expect(result.current.obj.v).toBe(2);
-      expect(stale.v).toBe(1);
-
-      act(() => {
-        stale.v = 99;
-      });
-
-      expect(result.current.obj.v).toBe(2);
-    });
-  });
-
-  describe('shared references', () => {
-    it('copies a shared initial object into independent branches', () => {
-      const shared = { value: 0 };
-      const { result } = renderHook(() =>
-        useReactive({ a: shared, b: shared })
-      );
-
-      expect(result.current.a).not.toBe(result.current.b);
-
-      act(() => {
-        result.current.b.value = 5;
-      });
-
-      expect(result.current.a.value).toBe(0);
-      expect(result.current.b.value).toBe(5);
-    });
-  });
-
-  describe('cycles', () => {
-    it('supports cyclic init with readable, mutable self references', () => {
-      const cyclic = { a: 1 };
-      cyclic.self = cyclic;
-      const { result } = renderHook(() => useReactive(cyclic));
-
-      expect(result.current.self.self.self.a).toBe(1);
-
-      act(() => {
-        result.current.self.a = 2;
-      });
-
-      expect(result.current.self.a).toBe(2);
-      expect(result.current.a).toBe(2);
+      fireEvent.click(screen.getByText('bump'));
+      expect(childRenders).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('name').textContent).toBe('a');
     });
   });
 });

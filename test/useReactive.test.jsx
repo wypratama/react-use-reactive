@@ -261,6 +261,153 @@ describe('useReactive', () => {
       expect(result.current.items[0]).toBe(1);
       expect(result.current.items[2]).toBe(3);
     });
+
+    it('keeping the array length is a no-op', () => {
+      const { result } = renderHook(() => useReactive({ items: [1, 2] }));
+      const first = result.current;
+
+      act(() => {
+        result.current.items.length = 2;
+      });
+
+      expect(result.current).toBe(first);
+    });
+  });
+
+  describe('no-op operations', () => {
+    it('keeps the root identity for same-value primitive writes', () => {
+      const { result } = renderHook(() => useReactive({ count: 0 }));
+      const first = result.current;
+
+      act(() => {
+        result.current.count = 0;
+      });
+
+      expect(result.current).toBe(first);
+    });
+
+    it('keeps nested identity for same-value leaf writes', () => {
+      const { result } = renderHook(() => useReactive({ user: { name: 'a' } }));
+      const first = result.current.user;
+
+      act(() => {
+        result.current.user.name = 'a';
+      });
+
+      expect(result.current.user).toBe(first);
+    });
+
+    it('keeps the root identity when deleting a missing key', () => {
+      const { result } = renderHook(() => useReactive({ a: 1 }));
+      const first = result.current;
+
+      act(() => {
+        delete result.current.b;
+      });
+
+      expect(result.current).toBe(first);
+    });
+
+    it('always copies structural values, even when equal', () => {
+      const { result } = renderHook(() =>
+        useReactive({ a: { x: 1 }, b: { x: 1 } })
+      );
+      const b = result.current.b;
+
+      act(() => {
+        result.current.a = result.current.b;
+      });
+
+      expect(result.current.a).toEqual({ x: 1 });
+      expect(result.current.a).not.toBe(b);
+      expect(result.current.a).not.toBe(result.current.b);
+    });
+  });
+
+  describe('arrays', () => {
+    it('supports push, pop, shift, unshift, and length truncation', () => {
+      const { result } = renderHook(() => useReactive({ items: [] }));
+
+      act(() => {
+        result.current.items.push('a', 'b');
+        result.current.items.unshift('z');
+      });
+
+      expect(result.current.items).toEqual(['z', 'a', 'b']);
+
+      act(() => {
+        expect(result.current.items.pop()).toBe('b');
+        expect(result.current.items.shift()).toBe('z');
+        result.current.items.length = 0;
+      });
+
+      expect(result.current.items).toEqual([]);
+    });
+
+    it('supports splice, sort, and reverse on the live array', () => {
+      const { result } = renderHook(() => useReactive({ items: [3, 1, 2] }));
+
+      act(() => {
+        result.current.items.sort();
+      });
+
+      expect(result.current.items).toEqual([1, 2, 3]);
+
+      act(() => {
+        result.current.items.reverse();
+      });
+
+      expect(result.current.items).toEqual([3, 2, 1]);
+
+      act(() => {
+        result.current.items.splice(1, 1, 'x');
+      });
+
+      expect(result.current.items).toEqual([3, 'x', 1]);
+    });
+
+    it('supports index assignment and length truncation', () => {
+      const { result } = renderHook(() => useReactive({ items: [1, 2, 3] }));
+
+      act(() => {
+        result.current.items[0] = 9;
+        result.current.items.length = 2;
+      });
+
+      expect(result.current.items).toEqual([9, 2]);
+    });
+
+    it('reads spread and substitutes a fresh array', () => {
+      const { result } = renderHook(() =>
+        useReactive({ items: [1, 2], other: null })
+      );
+
+      act(() => {
+        const spread = [...result.current.items];
+        result.current.items = [...spread, 3];
+        result.current.other = spread;
+      });
+
+      expect(result.current.items).toEqual([1, 2, 3]);
+      expect(result.current.items).not.toBe(result.current.other);
+    });
+
+    it('keeps a mixed adversarial sequence consistent', () => {
+      const { result } = renderHook(() =>
+        useReactive({ items: [0, 1, 2, 3] })
+      );
+
+      act(() => {
+        result.current.items.push(4);
+        result.current.items[1] = 'x';
+        result.current.items.splice(2, 2);
+        result.current.items.unshift(-1);
+        result.current.items.pop();
+        result.current.items.reverse();
+      });
+
+      expect(result.current.items).toEqual(['x', 0, -1]);
+    });
   });
 
   describe('identity', () => {
@@ -372,6 +519,46 @@ describe('useReactive', () => {
       });
 
       expect(result.current.nested.n).toBe(6);
+    });
+  });
+
+  describe('reference semantics', () => {
+    it('follows the same logical object across interleaved writes', () => {
+      const { result } = renderHook(() =>
+        useReactive({ user: { name: '', age: 0 } })
+      );
+      const userA = result.current.user;
+      const userB = result.current.user;
+
+      expect(userA).toBe(userB);
+
+      act(() => {
+        userA.name = 'A';
+      });
+      act(() => {
+        result.current.user.age = 30;
+      });
+      act(() => {
+        userB.name = 'B';
+      });
+
+      expect(result.current.user).toEqual({ name: 'B', age: 30 });
+    });
+
+    it('copies a shared initial object into independent branches', () => {
+      const shared = { value: 0 };
+      const { result } = renderHook(() =>
+        useReactive({ a: shared, b: shared })
+      );
+
+      expect(result.current.a).not.toBe(result.current.b);
+
+      act(() => {
+        result.current.b.value = 5;
+      });
+
+      expect(result.current.a.value).toBe(0);
+      expect(result.current.b.value).toBe(5);
     });
   });
 
@@ -502,7 +689,7 @@ describe('useReactive', () => {
       expect(result.current.user).toEqual({ name: 'Wicak', age: 30 });
     });
 
-    it('writes via Object.defineProperty', () => {
+    it('defines and rewrites a data property', () => {
       const { result } = renderHook(() => useReactive({}));
 
       act(() => {
@@ -515,6 +702,53 @@ describe('useReactive', () => {
       });
 
       expect(result.current.x).toBe(5);
+      expect(Object.getOwnPropertyDescriptor(result.current, 'x')).toEqual({
+        value: 5,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+
+      act(() => {
+        Object.defineProperty(result.current, 'x', {
+          value: 6,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
+      });
+
+      expect(result.current.x).toBe(6);
+    });
+
+    it('rejects accessor descriptors with a clear error', () => {
+      const { result } = renderHook(() => useReactive({}));
+
+      expect(() => {
+        act(() => {
+          Object.defineProperty(result.current, 'x', {
+            get: () => 1,
+            enumerable: true,
+          });
+        });
+      }).toThrow('does not support accessor properties');
+    });
+
+    it('rejects attribute transitions a Proxy cannot represent', () => {
+      const { result } = renderHook(() => useReactive({ x: 1 }));
+
+      expect(() => {
+        act(() => {
+          Object.defineProperty(result.current, 'x', {
+            value: 1,
+            writable: false,
+            enumerable: true,
+            configurable: false,
+          });
+        });
+      }).toThrow('as non-configurable');
+
+      expect(result.current.x).toBe(1);
     });
   });
 
@@ -535,19 +769,38 @@ describe('useReactive', () => {
       expect(result.current.o.x).toBe(9);
     });
 
-    it('supports cyclic initial values', () => {
+    it('rejects cyclic initial values', () => {
       const cyclic = { a: 1 };
       cyclic.self = cyclic;
-      const { result } = renderHook(() => useReactive(cyclic));
 
-      expect(result.current.self.self.self.a).toBe(1);
+      expect(() => {
+        renderHook(() => useReactive(cyclic));
+      }).toThrow('does not support cyclic plain objects or arrays');
+    });
 
-      act(() => {
-        result.current.self.a = 2;
-      });
+    it('rejects cyclic values on assignment', () => {
+      const { result } = renderHook(() => useReactive({ obj: null }));
+      const cyclic = { a: 1 };
+      cyclic.self = cyclic;
+      cyclic.obj = cyclic;
 
-      expect(result.current.self.a).toBe(2);
-      expect(result.current.a).toBe(2);
+      expect(() => {
+        act(() => {
+          result.current.obj = cyclic;
+        });
+      }).toThrow('does not support cyclic plain objects or arrays');
+    });
+
+    it('rejects cyclic arrays on assignment', () => {
+      const { result } = renderHook(() => useReactive({ items: null }));
+      const cyclic = [];
+      cyclic.push(cyclic);
+
+      expect(() => {
+        act(() => {
+          result.current.items = cyclic;
+        });
+      }).toThrow('does not support cyclic plain objects or arrays');
     });
   });
 
