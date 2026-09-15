@@ -158,74 +158,13 @@ const assertAcyclic = (candidate, chain) => {
 };
 
 /**
- * Validates a data `defineProperty` descriptor against the current own
- * descriptor of `key`. Properties are defined on a copy-on-write node, but the
- * Proxy target is the previous version of that node, so transitions that would
- * violate Proxy invariant rules (essentially tightening attributes) are
- * rejected up front with a clear error instead of a raw engine error.
- *
- * @param {string|symbol|number} key
- * @param {PropertyDescriptor} descriptor
- * @param {PropertyDescriptor|undefined} current
- * @internal
- */
-const assertDefineCompatible = (key, descriptor, current) => {
-  const configurable = descriptor.configurable === true;
-  const hasValue = 'value' in descriptor;
-  const writable = hasValue ? descriptor.writable === true : undefined;
-
-  if (
-    configurable &&
-    current !== undefined &&
-    current.configurable === false
-  ) {
-    throw new TypeError(
-      'useReactive cannot make the non-configurable property ' +
-        String(key) +
-        ' configurable'
-    );
-  }
-  if (
-    !configurable &&
-    (current === undefined || current.configurable === true)
-  ) {
-    throw new TypeError(
-      'useReactive cannot define the configurable property ' +
-        String(key) +
-        ' as non-configurable'
-    );
-  }
-  if (
-    hasValue &&
-    (writable === true && current !== undefined && current.writable === false)
-  ) {
-    throw new TypeError(
-      'useReactive cannot make the non-writable property ' +
-        String(key) +
-        ' writable'
-    );
-  }
-  if (
-    hasValue &&
-    current !== undefined &&
-    current.writable === false &&
-    !Object.is(descriptor.value, current.value)
-  ) {
-    throw new TypeError(
-      'useReactive cannot change the value of the non-writable property ' +
-        String(key)
-    );
-  }
-};
-
-/**
  * Builds (and registers) the reactive Proxy for a NodeHandle. The Proxy
  * targets the handle's node so reflective tools (e.g. `Array.isArray`) see the
  * real data type; all metadata lives in the `handle` closure.
  *
  * @param {{ current: *, cache: WeakMap<object, *>, dispatch: () => void, rootNode: *, root: * }} store -
  *   the store this proxy belongs to
- * @param {{ store: *, isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }} handle -
+ * @param {{ isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }} handle -
  *   the handle of the node being proxied
  * @returns {*}
  * @internal
@@ -395,31 +334,10 @@ const makeProxy = (store, handle) => {
       rebindAfterWrite();
       return true;
     },
-    defineProperty: (_target, key, descriptor) => {
-      if (!isLive()) {
-        return true;
-      }
-      if ('get' in descriptor || 'set' in descriptor) {
-        throw new TypeError(
-          'useReactive does not support accessor properties (getter/setter descriptors)'
-        );
-      }
-      const current =
-        handle.live() === null || handle.live() === undefined
-          ? undefined
-          : Reflect.getOwnPropertyDescriptor(handle.live(), key);
-      assertDefineCompatible(key, descriptor, current);
-      const targetDescriptor = { ...descriptor };
-      if ('value' in targetDescriptor) {
-        targetDescriptor.value = toNode(targetDescriptor.value, [], []);
-      }
-      commit((node) => {
-        const copy = copyNode(node);
-        Object.defineProperty(copy, key, targetDescriptor);
-        return copy;
-      });
-      rebindAfterWrite();
-      return true;
+    defineProperty: () => {
+      throw new TypeError(
+        'useReactive does not support Object.defineProperty (custom property descriptors are not supported)'
+      );
     },
     has: (_target, key) => {
       const source = handle.live();
@@ -466,13 +384,12 @@ const makeProxy = (store, handle) => {
  *
  * @param {*} store - the store this handle belongs to
  * @param {{ isRoot?: boolean, path: Array<string|symbol|number>, node: * }} spec
- * @returns {{ store: *, isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }}
+ * @returns {{ isRoot: boolean, path: Array<string|symbol|number>, node: *, proxy: *, live: () => * }}
  * @internal
  */
 const createHandle = (store, spec) => {
   const { isRoot, path, node } = spec;
   const handle = {
-    store,
     isRoot: isRoot === true,
     path,
     node,

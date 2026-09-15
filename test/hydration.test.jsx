@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hydrateRoot } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToString } from 'react-dom/server';
 import { act, fireEvent } from '@testing-library/react';
 import useReactive from '../index.js';
 
@@ -20,19 +20,19 @@ function Example() {
 describe('hydration', () => {
   it('hydrates server markup and stays mutable after hydration', () => {
     const container = document.createElement('div');
-    container.innerHTML = renderToStaticMarkup(<Example />);
+    container.innerHTML = renderToString(<Example />);
 
-    let recoveries = 0;
+    const recoveries = [];
     let root;
     act(() => {
       root = hydrateRoot(container, <Example />, {
-        onRecoverableError() {
-          recoveries++;
+        onRecoverableError(error) {
+          recoveries.push(error);
         },
       });
     });
 
-    expect(recoveries).toBe(0);
+    expect(recoveries).toEqual([]);
     expect(
       container.querySelector('[data-testid="count"]').textContent
     ).toBe('0');

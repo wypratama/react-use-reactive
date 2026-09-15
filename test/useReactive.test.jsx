@@ -689,66 +689,57 @@ describe('useReactive', () => {
       expect(result.current.user).toEqual({ name: 'Wicak', age: 30 });
     });
 
-    it('defines and rewrites a data property', () => {
-      const { result } = renderHook(() => useReactive({}));
-
-      act(() => {
-        Object.defineProperty(result.current, 'x', {
-          value: 5,
-          enumerable: true,
-          configurable: true,
-          writable: true,
-        });
-      });
-
-      expect(result.current.x).toBe(5);
-      expect(Object.getOwnPropertyDescriptor(result.current, 'x')).toEqual({
-        value: 5,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
-
-      act(() => {
-        Object.defineProperty(result.current, 'x', {
-          value: 6,
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
-      });
-
-      expect(result.current.x).toBe(6);
-    });
-
-    it('rejects accessor descriptors with a clear error', () => {
-      const { result } = renderHook(() => useReactive({}));
-
-      expect(() => {
-        act(() => {
-          Object.defineProperty(result.current, 'x', {
-            get: () => 1,
-            enumerable: true,
-          });
-        });
-      }).toThrow('does not support accessor properties');
-    });
-
-    it('rejects attribute transitions a Proxy cannot represent', () => {
+    it('rejects Object.defineProperty with a clear error', () => {
       const { result } = renderHook(() => useReactive({ x: 1 }));
 
       expect(() => {
         act(() => {
           Object.defineProperty(result.current, 'x', {
-            value: 1,
-            writable: false,
+            value: 5,
             enumerable: true,
-            configurable: false,
+            configurable: true,
+            writable: true,
           });
         });
-      }).toThrow('as non-configurable');
+      }).toThrow('does not support Object.defineProperty');
+
+      expect(() => {
+        act(() => {
+          Object.defineProperty(result.current, 'y', {
+            get: () => 1,
+            enumerable: true,
+          });
+        });
+      }).toThrow('does not support Object.defineProperty');
 
       expect(result.current.x).toBe(1);
+    });
+
+    it('keeps normal assignment working after a defineProperty rejection', () => {
+      const { result } = renderHook(() => useReactive({ count: 0 }));
+
+      expect(() => {
+        act(() => {
+          Object.defineProperty(result.current, 'extra', {
+            value: 1,
+          });
+        });
+      }).toThrow('does not support Object.defineProperty');
+
+      act(() => {
+        result.current.count = 1;
+        Object.assign(result.current, { a: 2, b: 3 });
+        result.current.items = [1];
+        result.current.items.push(2);
+      });
+
+      expect(result.current.count).toBe(1);
+      expect(result.current).toEqual({
+        count: 1,
+        a: 2,
+        b: 3,
+        items: [1, 2],
+      });
     });
   });
 
@@ -778,8 +769,8 @@ describe('useReactive', () => {
       }).toThrow('does not support cyclic plain objects or arrays');
     });
 
-    it('rejects cyclic values on assignment', () => {
-      const { result } = renderHook(() => useReactive({ obj: null }));
+    it('rejects cyclic values on assignment and keeps the tree valid', () => {
+      const { result } = renderHook(() => useReactive({ obj: { v: 1 } }));
       const cyclic = { a: 1 };
       cyclic.self = cyclic;
       cyclic.obj = cyclic;
@@ -789,10 +780,20 @@ describe('useReactive', () => {
           result.current.obj = cyclic;
         });
       }).toThrow('does not support cyclic plain objects or arrays');
+
+      expect(result.current.obj).toEqual({ v: 1 });
+
+      act(() => {
+        result.current.obj.v = 2;
+        result.current.other = 1;
+      });
+
+      expect(result.current.obj.v).toBe(2);
+      expect(result.current.other).toBe(1);
     });
 
-    it('rejects cyclic arrays on assignment', () => {
-      const { result } = renderHook(() => useReactive({ items: null }));
+    it('rejects cyclic arrays on assignment and leaves the target unchanged', () => {
+      const { result } = renderHook(() => useReactive({ items: [1] }));
       const cyclic = [];
       cyclic.push(cyclic);
 
@@ -801,6 +802,14 @@ describe('useReactive', () => {
           result.current.items = cyclic;
         });
       }).toThrow('does not support cyclic plain objects or arrays');
+
+      expect(result.current.items).toEqual([1]);
+
+      act(() => {
+        result.current.items.push(2);
+      });
+
+      expect(result.current.items).toEqual([1, 2]);
     });
   });
 

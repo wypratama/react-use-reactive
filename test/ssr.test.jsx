@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import useReactive from '../index.js';
@@ -14,12 +16,19 @@ function Example() {
   );
 }
 
-describe('server-side rendering', () => {
-  it('renders a reactive-declared component to static markup', () => {
+describe('server-side rendering (Node environment, no browser globals)', () => {
+  it('runs without the jsdom environment', () => {
+    expect(typeof window).toBe('undefined');
+    expect(typeof document).toBe('undefined');
+  });
+
+  it('renders a reactive-declared component to valid HTML', () => {
     const html = renderToString(<Example />);
 
-    expect(html).toContain('Wicak');
+    expect(html).toContain('<main>');
+    expect(html).toContain('>Wicak</span>');
     expect(html).toContain('>6</span>');
+    expect(html).toContain('</main>');
   });
 
   it('renders deterministically across calls', () => {
