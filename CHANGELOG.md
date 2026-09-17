@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v2.0.0-beta.1
+
+[compare changes](https://github.com/wypratama/react-use-reactive/compare/v2.0.0-beta.0...v2.0.0-beta.1)
+
+### 🩹 Fixes
+
+- **release:** Add safe publish recovery for existing beta ([14672eb](https://github.com/wypratama/react-use-reactive/commit/14672eb))
+
+### 🏡 Chore
+
+- **package:** Normalize repository metadata ([06008bc](https://github.com/wypratama/react-use-reactive/commit/06008bc))
+
+### ❤️ Contributors
+
+- Wicaksana Pratama <wicaksanapratama@gmail.com>
+
 ## v2.0.0-beta.0
 
 [compare changes](https://github.com/wypratama/react-use-reactive/compare/v1.0.1...v2.0.0-beta.0)
