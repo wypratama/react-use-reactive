@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version bump type'
+        description: 'Version bump or recovery mode'
         required: true
         type: choice
         options:
@@ -13,6 +13,7 @@ on:
           - major
           - premajor-beta
           - prerelease-beta
+          - publish-existing-beta
         default: auto
 
 permissions:
@@ -31,6 +32,30 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Resolve existing beta for publish recovery
+        if: inputs.version == 'publish-existing-beta'
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          case "$VERSION" in
+            *-beta.*) ;;
+            *)
+              echo "Refusing publish recovery for non-beta version: $VERSION"
+              exit 1
+              ;;
+          esac
+
+          TAG="v$VERSION"
+          git rev-parse --verify "refs/tags/$TAG" >/dev/null
+          git checkout --detach "$TAG"
+
+          TAG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$VERSION" ]; then
+            echo "Tag $TAG contains package version $TAG_VERSION, expected $VERSION"
+            exit 1
+          fi
+
+          echo "Publishing exact tagged source: $TAG"
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -59,6 +84,7 @@ jobs:
           npm run check:pack
 
       - name: Bump version and create tag
+        if: inputs.version != 'publish-existing-beta'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -72,13 +98,22 @@ jobs:
           esac
 
       - name: Create GitHub Release
+        if: inputs.version != 'publish-existing-beta'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx changelogen gh release
 
+      - name: Mark GitHub beta release as prerelease
+        if: inputs.version == 'premajor-beta' || inputs.version == 'prerelease-beta' || inputs.version == 'publish-existing-beta'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release edit "v$VERSION" --prerelease
+
       - name: Publish to npm (Trusted Publishing)
         run: |
           case "${{ inputs.version }}" in
-            premajor-beta|prerelease-beta) npm publish --tag beta ;;
+            premajor-beta|prerelease-beta|publish-existing-beta) npm publish --tag beta ;;
             *) npm publish ;;
           esac

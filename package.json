@@ -39,7 +39,10 @@
   },
   "license": "MIT",
   "author": "Wicaksana Pratama",
-  "repository": "git@github.com:wypratama/react-use-reactive.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wypratama/react-use-reactive.git"
+  },
   "keywords": [
     "react",
     "reactive-hook",
