@@ -15,5 +15,5 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["index.js"]
+  "include": ["index.js", "test/type-probes.ts"]
 }
