@@ -1,32 +1,49 @@
 name: CI
-on: [push]
+on:
+  push:
+  pull_request:
+
 jobs:
-  build:
-    name: Build, lint, and test on Node ${{ matrix.node }} and ${{ matrix.os }}
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        node: ['18.x']
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-
+  validate:
+    name: Lint, type-check, test, and verify package (React 19)
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
-
-      - name: Use Node ${{ matrix.node }}
-        uses: actions/setup-node@v1
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node }}
-
-      - name: Install deps and build (with cache)
-        uses: bahmutov/npm-install@v1
-
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
       - name: Lint
-        run: yarn lint
-
+        run: npm run lint
+      - name: Type-check (JSDoc)
+        run: npm run typecheck
+      - name: Verify generated declarations are up to date
+        run: npm run check:types
       - name: Test
-        run: yarn test --ci --coverage --maxWorkers=2
+        run: npm test
+      - name: Validate package metadata
+        run: npm run lint:pack
+      - name: Verify package contents and entry point
+        run: npm run check:pack
 
-      - name: Build
-        run: yarn build
+  test-react-18:
+    name: Test against React 18
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Swap React 19 for React 18
+        run: npm install --no-save react@18.3.1 react-dom@18.3.1 @types/react@18.3.12
+      - name: Test
+        run: npm test

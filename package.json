@@ -1,79 +1,44 @@
 {
+  "name": "react-use-reactive",
   "version": "1.0.1",
-  "license": "MIT",
-  "main": "dist/index.js",
-  "typings": "dist/index.d.ts",
+  "description": "A custom React hook to mutate state like an ordinary object with deep reactivity",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
   "files": [
-    "dist"
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
   ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
   "engines": {
-    "node": ">=10"
+    "node": ">=18"
+  },
+  "packageManager": "npm@11.17.0",
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "start": "tsdx watch",
-    "build": "tsdx build --format cjs,esm,umd",
-    "test": "tsdx test --passWithNoTests --silent=false",
-    "lint": "tsdx lint",
-    "prepare": "tsdx build",
-    "size": "size-limit",
-    "analyz": "size-limit --why",
-    "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook",
-    "cl": "changelogen"
+    "test": "vitest run",
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit",
+    "build:types": "tsc -p tsconfig.build.json",
+    "check:types": "npm run build:types && git diff --exit-code -- index.d.ts",
+    "lint:pack": "publint",
+    "check:pack": "node scripts/check-pack.mjs",
+    "changelog": "changelogen",
+    "prepack": "npm run build:types"
   },
-  "peerDependencies": {
-    "react": ">=16"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "tsdx lint"
-    }
-  },
-  "prettier": {
-    "printWidth": 80,
-    "semi": true,
-    "singleQuote": true,
-    "trailingComma": "es5"
-  },
-  "name": "react-use-reactive",
+  "license": "MIT",
   "author": "Wicaksana Pratama",
-  "module": "dist/react-use-reactive.esm.js",
-  "size-limit": [
-    {
-      "path": "dist/react-use-reactive.cjs.production.min.js",
-      "limit": "100 KB"
-    },
-    {
-      "path": "dist/react-use-reactive.esm.js",
-      "limit": "100 KB"
-    }
-  ],
-  "devDependencies": {
-    "@babel/core": "^7.21.0",
-    "@size-limit/preset-small-lib": "^8.2.4",
-    "@storybook/addon-essentials": "^6.5.16",
-    "@storybook/addon-info": "^5.3.21",
-    "@storybook/addon-links": "^6.5.16",
-    "@storybook/addons": "^6.5.16",
-    "@storybook/react": "^6.5.16",
-    "@testing-library/react-hooks": "^8.0.1",
-    "@types/react": "^18.0.28",
-    "@types/react-dom": "^18.0.11",
-    "@types/ungap__structured-clone": "^1.2.0",
-    "@ungap/structured-clone": "^1.2.0",
-    "babel-loader": "^9.1.2",
-    "changelogen": "^0.5.5",
-    "husky": "^8.0.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-is": "^18.2.0",
-    "react-test-renderer": "^18.2.0",
-    "size-limit": "^8.2.4",
-    "tsdx": "^0.14.1",
-    "tslib": "^2.5.0",
-    "typescript": "^4.9.5"
-  },
-  "description": "A custom React hook to create reactive objects using useState with support for nested objects.",
   "repository": "git@github.com:wypratama/react-use-reactive.git",
   "keywords": [
     "react",
@@ -81,5 +46,20 @@
     "state-hook",
     "react-hook"
   ],
-  "dependencies": {}
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.3.0",
+    "changelogen": "^0.6.2",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.82.0",
+    "publint": "^0.3.24",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
 }
