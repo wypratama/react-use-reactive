@@ -33,7 +33,6 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Resolve existing beta for publish recovery
         if: inputs.version == 'publish-existing-beta'
