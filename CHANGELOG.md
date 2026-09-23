@@ -1,6 +1,20 @@
 # Changelog
 
 
+## v2.0.0
+
+[compare changes](https://github.com/wypratama/react-use-reactive/compare/v2.0.0-beta.1...v2.0.0)
+
+### 🤖 CI
+
+- Harden validation workflow ([529d815](https://github.com/wypratama/react-use-reactive/commit/529d815))
+- Harden release workflow ([7cfe672](https://github.com/wypratama/react-use-reactive/commit/7cfe672))
+- Preserve release git credentials ([fe29c80](https://github.com/wypratama/react-use-reactive/commit/fe29c80))
+
+### ❤️ Contributors
+
+- Wicaksana Pratama <wicaksanapratama@gmail.com>
+
 ## v2.0.0-beta.1
 
 [compare changes](https://github.com/wypratama/react-use-reactive/compare/v2.0.0-beta.0...v2.0.0-beta.1)
